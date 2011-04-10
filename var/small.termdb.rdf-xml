@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE go:go PUBLIC "-//Gene Ontology//Custom XML/RDF Version 2.0//EN" "http://www.geneontology.org/dtd/go.dtd">
+
+<go:go xmlns:go="http://www.geneontology.org/dtds/go.dtd#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:RDF>
+        <go:term rdf:about="http://www.geneontology.org/go#GO:0000001">
+            <go:accession>GO:0000001</go:accession>
+            <go:name>mitochondrion inheritance</go:name>
+            <go:definition>The distribution of mitochondria, including the mitochondrial genome, into daughter cells after mitosis or meiosis, mediated by interactions between mitochondria and the cytoskeleton.</go:definition>
+            <go:is_a rdf:resource="http://www.geneontology.org/go#GO:0008150" />
+        </go:term>
+        <go:term rdf:about="http://www.geneontology.org/go#GO:0000002">
+            <go:accession>GO:0000002</go:accession>
+            <go:name>mitochondrial genome maintenance</go:name>
+            <go:definition>The maintenance of the structure and integrity of the mitochondrial genome; includes replication and segregation of the mitochondrial chromosome.</go:definition>
+            <go:is_a rdf:resource="http://www.geneontology.org/go#GO:0008150" />
+        </go:term>
+        <go:term rdf:about="http://www.geneontology.org/go#GO:0000003">
+            <go:accession>GO:0000003</go:accession>
+            <go:name>reproduction</go:name>
+            <go:definition>The production by an organism of new individuals that contain some portion of their genetic material inherited from that organism.</go:definition>
+            <go:is_a rdf:resource="http://www.geneontology.org/go#GO:0008150" />
+        </go:term>
+        <go:term rdf:about="http://www.geneontology.org/go#GO:0008150">
+            <go:accession>GO:0008150</go:accession>
+            <go:name>biological process</go:name>
+            <go:definition>The production by an organism of new individuals that contain some portion of their genetic material inherited from that organism.</go:definition>
+            <go:is_a rdf:resource="http://www.geneontology.org/go#all" />
+        </go:term>
+        <go:term rdf:about="http://www.geneontology.org/go#all">
+            <go:accession>all</go:accession>
+            <go:name>all</go:name>
+        </go:term>
+  </rdf:RDF>
+</go:go>

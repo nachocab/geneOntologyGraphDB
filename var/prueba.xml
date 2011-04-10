@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<go:go  xmlns:go="http://www.geneontology.org/dtd/go.dtd">
+    <RDF>
+        <term>
+            <accession>GO:0000001</accession>
+        </term>
+        </RDF>
+    </go:go>
