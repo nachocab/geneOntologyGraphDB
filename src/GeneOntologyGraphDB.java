@@ -1,6 +1,9 @@
 import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.*;
+import org.neo4j.helpers.collection.MapUtil;
+import org.neo4j.index.impl.lucene.LuceneBatchInserterIndexProvider;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
+import org.neo4j.kernel.impl.batchinsert.*;
 
 import java.util.*;
 
@@ -18,7 +21,8 @@ import com.ximpleware.*;
 public class GeneOntologyGraphDB {
 
     private static final String ONTOLOGY_FILE = "var/go_daily-termdb.rdf-xml";
-//    private static final String ONTOLOGY_FILE = "var/small.termdb.rdf-xml";
+    //    private static final String ONTOLOGY_FILE = "var/small.termdb.rdf-xml";
+    private static final String DB_PATH = "var/graphdb/";
 
     private static final String RDF_NS_URI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
     private static final String GO_NS_URI = "http://www.geneontology.org/dtds/go.dtd#";
@@ -39,73 +43,10 @@ public class GeneOntologyGraphDB {
     private static final String KEY_TERM_PATH = "/go:go/rdf:RDF/go:term";
     private static final String KEY_NAMESPACE = "go:";
 
-    public static void parseOntologyNodes(String oboXMLFile, GraphDatabaseService graphDb) {
+    public static void parseOntologyNodes(String oboXMLFile, BatchInserter batchInserter, BatchInserterIndex accessionsIndex) {
         VTDGen vg = new VTDGen();
 
-        if (vg.parseFile(oboXMLFile, true)){
-            Transaction tx = graphDb.beginTx();
-            try {
-                VTDNav vn = vg.getNav();
-                AutoPilot ap1 = new AutoPilot();
-                AutoPilot ap2 = new AutoPilot();
-
-                ap1.declareXPathNameSpace("rdf",RDF_NS_URI);
-                ap1.declareXPathNameSpace("go",GO_NS_URI);
-
-                ap1.selectXPath(KEY_TERM_PATH);
-
-                Index<Node> accessionsIndex = graphDb.index().forNodes(KEY_ACCESSION);
-                Index<Node> namesIndex = graphDb.index().forNodes(KEY_NAME);
-
-                ap1.bind(vn);
-                ap2.bind(vn);
-
-                while((ap1.evalXPath()) != -1){
-                    HashMap nodeAttributesHash = new HashMap();
-                    for (String attributeName : NODE_PROPERTIES){
-                        ap2.selectXPath(KEY_NAMESPACE + attributeName);
-                        nodeAttributesHash.put(attributeName, ap2.evalXPathToString());
-                    }
-                    Node node = findOrCreateOntologyNode(nodeAttributesHash, graphDb);
-
-                    accessionsIndex.add(node, KEY_ACCESSION, node.getProperty(KEY_ACCESSION));
-                    namesIndex.add(node, KEY_NAME, node.getProperty(KEY_NAME));
-                }
-//                ap1.resetXPath();
-
-                tx.success();
-            }catch (NavException e) {
-                System.out.println("Exception during navigation " + e);
-            } catch (XPathEvalException e){
-                e.printStackTrace();
-            } catch (XPathParseException e ){
-                e.printStackTrace();
-
-            } finally {
-                tx.finish();
-            }
-        }
-    }
-
-    public static Node findOrCreateOntologyNode(HashMap<String, String> nodeAttributes, GraphDatabaseService graphDb) {
-        Index<Node> accessionsIndex = graphDb.index().forNodes(KEY_ACCESSION);
-        Node ontologyNode = accessionsIndex.get(KEY_ACCESSION, nodeAttributes.get(KEY_ACCESSION)).getSingle();
-
-        if (ontologyNode == null){
-            ontologyNode = graphDb.createNode();
-
-            for (String key : nodeAttributes.keySet()){
-                ontologyNode.setProperty(key, nodeAttributes.get(key));
-            }
-        }
-        return ontologyNode;
-    }
-
-    public static void parseOntologyRelationships(String oboXMLFile, GraphDatabaseService graphDb){
-        VTDGen vg = new VTDGen();
-
-        if (vg.parseFile(oboXMLFile, true)){
-            Transaction tx = graphDb.beginTx();
+        if (vg.parseFile(oboXMLFile, true)) {
             try {
                 VTDNav vn = vg.getNav();
                 AutoPilot ap1 = new AutoPilot();
@@ -116,44 +57,95 @@ public class GeneOntologyGraphDB {
 
                 ap1.selectXPath(KEY_TERM_PATH);
 
-                Index<Node> accessionsIndex = graphDb.index().forNodes(KEY_ACCESSION);
+                ap1.bind(vn);
+                ap2.bind(vn);
+
+                while ((ap1.evalXPath()) != -1) {
+                    HashMap properties = new HashMap();
+                    for (String attributeName : NODE_PROPERTIES) {
+                        ap2.selectXPath(KEY_NAMESPACE + attributeName);
+                        properties.put(attributeName, ap2.evalXPathToString());
+                    }
+                    long node = batchInserter.createNode(properties);
+                    accessionsIndex.add(node, properties);
+                }
+//                ap1.resetXPath();
+
+            } catch (NavException e) {
+                System.out.println("Exception during navigation " + e);
+            } catch (XPathEvalException e) {
+                e.printStackTrace();
+            } catch (XPathParseException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static Node findOrCreateOntologyNode(HashMap<String, String> nodeAttributes, GraphDatabaseService graphDb) {
+        Index<Node> accessionsIndex = graphDb.index().forNodes(KEY_ACCESSION);
+        Node ontologyNode = accessionsIndex.get(KEY_ACCESSION, nodeAttributes.get(KEY_ACCESSION)).getSingle();
+
+        if (ontologyNode == null) {
+            ontologyNode = graphDb.createNode();
+
+            for (String key : nodeAttributes.keySet()) {
+                ontologyNode.setProperty(key, nodeAttributes.get(key));
+            }
+        }
+        return ontologyNode;
+    }
+
+    public static void parseOntologyRelationships(String oboXMLFile, BatchInserter batchInserter, BatchInserterIndex accessionsIndex) {
+        VTDGen vg = new VTDGen();
+
+        if (vg.parseFile(oboXMLFile, true)) {
+            try {
+                VTDNav vn = vg.getNav();
+                AutoPilot ap1 = new AutoPilot();
+                AutoPilot ap2 = new AutoPilot();
+
+                ap1.declareXPathNameSpace("rdf", RDF_NS_URI);
+                ap1.declareXPathNameSpace("go", GO_NS_URI);
+
+                ap1.selectXPath(KEY_TERM_PATH);
 
                 ap1.bind(vn);
                 ap2.bind(vn);
 
-                while((ap1.evalXPath()) != -1){
+                while ((ap1.evalXPath()) != -1) {
                     ap2.selectXPath(KEY_NAMESPACE + KEY_ACCESSION);
-                    Node sibling = accessionsIndex.get(KEY_ACCESSION, ap2.evalXPathToString()).getSingle();
+                    String siblingAccession = ap2.evalXPathToString();
+                    long sibling = accessionsIndex.get(KEY_ACCESSION, siblingAccession).getSingle();
 
-                    for (String relationshipName : RELATIONSHIP_NAMES){
+                    for (String relationshipName : RELATIONSHIP_NAMES) {
                         ap2.selectXPath(KEY_NAMESPACE + relationshipName + "/@rdf:resource");
 
                         String ancestorAccession = ap2.evalXPathToString();
 
                         if (ancestorAccession != "") {
                             ancestorAccession = ancestorAccession.split("#")[1];
-                            Node ancestor = accessionsIndex.get(KEY_ACCESSION, ancestorAccession).getSingle();
-                            sibling.createRelationshipTo(ancestor, OntologyRelTypes.valueOf(relationshipName.toUpperCase()));
+                            try {
+                                long ancestor = accessionsIndex.get(KEY_ACCESSION, ancestorAccession).getSingle();
+                                batchInserter.createRelationship(sibling, ancestor, OntologyRelTypes.valueOf(relationshipName.toUpperCase()), null);
+                            } catch (NullPointerException e) {
+                                System.out.println(siblingAccession + " " + relationshipName + " " + ancestorAccession + " which doesn't have a node");
+                            }
                         }
                     }
                 }
 //                ap1.resetXPath();
 
-                tx.success();
-            }catch (NavException e) {
+            } catch (NavException e) {
                 System.out.println("Exception during navigation " + e);
-            } catch (XPathEvalException e){
+            } catch (XPathEvalException e) {
                 e.printStackTrace();
-            } catch (XPathParseException e ){
+            } catch (XPathParseException e) {
                 e.printStackTrace();
-
-            } finally {
-                tx.finish();
             }
         }
     }
 
-    public static void createDefaultRelationships(GraphDatabaseService graphDb ){
+    public static void createDefaultRelationships(GraphDatabaseService graphDb) {
         Index<Node> accessionsIndex = graphDb.index().forNodes(KEY_ACCESSION);
 
         Node defaultNode = graphDb.getReferenceNode();
@@ -164,18 +156,26 @@ public class GeneOntologyGraphDB {
         try {
             all.createRelationshipTo(defaultNode, OntologyRelTypes.IS_A);
             tx.success();
-        } finally{
+        } finally {
             tx.finish();
         }
     }
 
     public static void main(final String[] args) throws Exception {
-        Map<String, String> configuration = EmbeddedGraphDatabase.loadConfigurations("var/neo4j_config.props");
-        GraphDatabaseService graphDb = new EmbeddedGraphDatabase("var/graphdb/", configuration);
 
-        parseOntologyNodes(ONTOLOGY_FILE, graphDb);
-        parseOntologyRelationships(ONTOLOGY_FILE, graphDb);
+        BatchInserter batchInserter = new BatchInserterImpl(DB_PATH, BatchInserterImpl.loadProperties("var/neo4j_parser_config.props"));
+        BatchInserterIndexProvider indexProvider = new LuceneBatchInserterIndexProvider(batchInserter);
 
+        BatchInserterIndex accessionsIndex = indexProvider.nodeIndex(KEY_ACCESSION, MapUtil.stringMap("type", "exact"));
+        accessionsIndex.setCacheCapacity(KEY_ACCESSION, 100000);
+
+        parseOntologyNodes(ONTOLOGY_FILE, batchInserter, accessionsIndex);
+        parseOntologyRelationships(ONTOLOGY_FILE, batchInserter, accessionsIndex);
+
+        indexProvider.shutdown();
+        batchInserter.shutdown();
+
+        GraphDatabaseService graphDb = new EmbeddedGraphDatabase(DB_PATH, EmbeddedGraphDatabase.loadConfigurations("var/neo4j_config.props"));
         createDefaultRelationships(graphDb);
 
         graphDb.shutdown();
